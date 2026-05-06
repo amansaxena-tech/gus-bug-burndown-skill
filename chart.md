@@ -112,6 +112,70 @@ combined_panel = f"""
 
 # build sections_html: one .program-section per program, .panels-grid inside with one .panel per tag
 
+# Build net-open bugs table (bugs currently in open status)
+net_open_bugs = [r for r in recs if r['Status__c'] not in CLOSED_STATUSES]
+net_open_bugs.sort(key=lambda r: (r['Product_Tag__r']['Name'], r['Name']))
+
+all_tags_in_table = sorted(set(r['Product_Tag__r']['Name'] for r in net_open_bugs))
+tag_options = '\n'.join(
+    f'<option value="{t}">{t}</option>' for t in all_tags_in_table
+)
+
+def bug_rows_html(bugs):
+    rows = []
+    for r in bugs:
+        tag = r['Product_Tag__r']['Name']
+        wid = r['Name']
+        subj = r.get('Subject__c') or r.get('Name', '')
+        pri  = r.get('Priority__c', '')
+        status = r.get('Status__c', '')
+        url  = f'https://gus.lightning.force.com/lightning/r/ADM_Work__c/{r["Id"]}/view'
+        rows.append(
+            f'<tr data-tag="{tag}">'
+            f'<td><a class="bug-link" href="{url}" target="_blank">{wid}</a></td>'
+            f'<td><span class="tag-chip">{tag}</span></td>'
+            f'<td>{subj}</td>'
+            f'<td><span class="badge p{pri[1:].lower() if pri else ""}">{pri}</span></td>'
+            f'<td>{status}</td>'
+            f'</tr>'
+        )
+    return '\n'.join(rows)
+
+open_bugs_table = f"""
+  <div class="open-bugs-section">
+    <div class="open-bugs-header">
+      <div class="open-bugs-title">Net Open Bugs &nbsp;<span class="badge open-badge">{len(net_open_bugs)} bugs</span></div>
+      <div class="filter-bar">
+        <label for="tagFilter">Filter by Product Tag:</label>
+        <select id="tagFilter" onchange="filterBugs(this.value)">
+          <option value="all">All Tags</option>
+          {tag_options}
+        </select>
+      </div>
+    </div>
+    <table class="bugs-table" id="bugsTable">
+      <thead>
+        <tr>
+          <th>Work ID</th>
+          <th>Product Tag</th>
+          <th>Subject</th>
+          <th>Priority</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {bug_rows_html(net_open_bugs)}
+      </tbody>
+    </table>
+  </div>
+  <script>
+    function filterBugs(tag) {{
+      document.querySelectorAll('#bugsTable tbody tr').forEach(function(row) {{
+        row.style.display = (tag === 'all' || row.dataset.tag === tag) ? '' : 'none';
+      }});
+    }}
+  </script>"""
+
 generated_at = datetime.now().strftime('%Y-%m-%d %H:%M')
 
 html = f"""<!DOCTYPE html>
@@ -137,14 +201,14 @@ html = f"""<!DOCTYPE html>
     .combined-panel{{background:#fff;border-radius:14px;margin-bottom:32px;
                      box-shadow:0 2px 10px rgba(0,0,0,0.09);overflow:hidden;}}
     .combined-header-bar{{display:flex;align-items:center;justify-content:space-between;
-                          background:linear-gradient(135deg,#0d1117,#1a2744);
+                          background:#eef1f7;border-bottom:1px solid #dde2ec;
                           padding:14px 20px;gap:12px;flex-wrap:wrap;}}
-    .combined-title{{font-size:1rem;font-weight:700;color:#ffffff;}}
+    .combined-title{{font-size:1rem;font-weight:700;color:#0d1117;}}
     .combined-chart-wrap{{padding:18px 20px 16px;}}
     .program-section{{margin-bottom:30px;}}
     .section-header{{display:flex;align-items:center;justify-content:space-between;
-                     background:#1a2744;color:#fff;border-radius:10px 10px 0 0;padding:11px 18px;}}
-    .section-name{{font-weight:600;font-size:0.93rem;}}.section-stats{{font-size:0.8rem;opacity:.8;}}
+                     background:#eef1f7;border:1px solid #dde2ec;color:#0d1117;border-radius:10px 10px 0 0;padding:11px 18px;}}
+    .section-name{{font-weight:600;font-size:0.93rem;}}.section-stats{{font-size:0.8rem;opacity:.6;}}
     .panels-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));
                   gap:1px;background:#e2e6ea;border-radius:0 0 10px 10px;overflow:hidden;}}
     .panel{{background:#fff;padding:15px 16px 12px;}}
@@ -156,6 +220,26 @@ html = f"""<!DOCTYPE html>
     .p0{{background:#f5e6ff;color:#6c3483;}}.p1{{background:#fde8e8;color:#c0392b;}}
     .p2{{background:#fef3e2;color:#d35400;}}.open-badge{{background:#fde8e8;color:#c0392b;}}
     .total-badge{{background:#eef2ff;color:#3b5bdb;}}
+    .open-bugs-section{{background:#fff;border-radius:14px;margin-top:32px;
+                        box-shadow:0 2px 10px rgba(0,0,0,0.09);overflow:hidden;}}
+    .open-bugs-header{{background:#eef1f7;border-bottom:1px solid #dde2ec;
+                       padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}}
+    .open-bugs-title{{font-size:1rem;font-weight:700;color:#0d1117;}}
+    .filter-bar{{display:flex;align-items:center;gap:10px;}}
+    .filter-bar label{{font-size:0.82rem;color:#555;font-weight:500;}}
+    .filter-bar select{{font-size:0.82rem;padding:5px 10px;border:1px solid #dde2ec;
+                        border-radius:6px;background:#fff;color:#333;cursor:pointer;}}
+    .bugs-table{{width:100%;border-collapse:collapse;}}
+    .bugs-table th{{background:#f6f8fb;font-size:0.78rem;font-weight:600;color:#555;
+                    text-align:left;padding:9px 14px;border-bottom:2px solid #e2e6ea;
+                    text-transform:uppercase;letter-spacing:.04em;}}
+    .bugs-table td{{font-size:0.82rem;color:#333;padding:8px 14px;border-bottom:1px solid #f0f2f5;vertical-align:top;}}
+    .bugs-table tr:last-child td{{border-bottom:none;}}
+    .bugs-table tr:hover td{{background:#fafbfd;}}
+    .bug-link{{color:#3b5bdb;text-decoration:none;font-weight:600;}}
+    .bug-link:hover{{text-decoration:underline;}}
+    .tag-chip{{font-size:0.72rem;padding:2px 8px;border-radius:20px;
+               background:#eef2ff;color:#3b5bdb;font-weight:500;white-space:nowrap;}}
     .footer{{text-align:center;color:#bbb;font-size:0.76rem;
              margin-top:28px;padding-top:14px;border-top:1px solid #e0e0e0;}}
   </style>
@@ -181,6 +265,7 @@ html = f"""<!DOCTYPE html>
   </div>
   {{combined_panel}}
   {{sections_html}}
+  {{open_bugs_table}}
   <div class="footer">
     GUS data · THB product tags · P0, P1 &amp; P2 bugs (Type = Bug) · No build/date filter applied
   </div>

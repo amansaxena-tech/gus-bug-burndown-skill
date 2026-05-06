@@ -75,7 +75,7 @@ sf data query --target-org gus --query "
 
 ```bash
 sf data query --target-org gus --query "
-  SELECT Id, Name, Status__c, Priority__c,
+  SELECT Id, Name, Subject__c, Status__c, Priority__c,
     Product_Tag__r.Name, CreatedDate, LastModifiedDate
   FROM ADM_Work__c
   WHERE Type__c = 'Bug'
